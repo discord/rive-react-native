@@ -32,6 +32,7 @@ class RiveReactNativeView: RCTView, RivePlayerDelegate, RiveStateMachineDelegate
     var cachedRiveFactory: RiveFactory?
     var previousReferencedAssets: NSDictionary?
     var cachedFileAssets: [String: RiveFileAsset] = [:]
+    var cachedBindableArtboards: [String: RiveBindableArtboard] = [:]
 
     @objc var resourceName: String? = nil {
         didSet {
@@ -157,6 +158,7 @@ class RiveReactNativeView: RCTView, RivePlayerDelegate, RiveStateMachineDelegate
 
     private func cleanupFileAssetCache() {
         cachedFileAssets.removeAll()
+        cachedBindableArtboards.removeAll()
         cachedRiveFactory = nil
     }
 
@@ -713,7 +715,15 @@ class RiveReactNativeView: RCTView, RivePlayerDelegate, RiveStateMachineDelegate
          }
 
          do {
-             let bindableArtboard = try file.bindableArtboard(withName: artboardName)
+             // Check cache first to avoid recreating bindable artboards
+             let bindableArtboard: RiveBindableArtboard
+             if let cached = cachedBindableArtboards[artboardName] {
+                 bindableArtboard = cached
+             } else {
+                 bindableArtboard = try file.bindableArtboard(withName: artboardName)
+                 // Store strong reference to prevent deallocation
+                 cachedBindableArtboards[artboardName] = bindableArtboard
+             }
              dataBindingViewModelInstance?.artboardProperty(fromPath: path)?.setValue(bindableArtboard)
          } catch {
              var rnError = RNRiveError.DataBindingError
