@@ -70,6 +70,16 @@ class ReactNativeRiveAnimationView(private val context: ThemedReactContext) :
     (lifecycleObserver as ReactNativeRiveViewLifecycleObserver).dispose()
   }
 
+  override fun onAttachedToWindow() {
+    try {
+      super.onAttachedToWindow()
+    } catch (e: RiveException) {
+      RiveReactNativeErrorHandler.handleError(e, "ReactNativeRiveAnimationView.onAttachedToWindow - RiveException")
+    } catch (e: Exception) {
+      RiveReactNativeErrorHandler.handleError(e, "ReactNativeRiveAnimationView.onAttachedToWindow - Exception")
+    }
+  }
+
   @SuppressLint("VisibleForTests")
   override fun createObserver(): LifecycleObserver {
     return ReactNativeRiveViewLifecycleObserver(
