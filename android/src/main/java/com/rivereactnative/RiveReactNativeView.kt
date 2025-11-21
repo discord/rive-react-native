@@ -423,37 +423,97 @@ class RiveReactNativeView(private val context: ThemedReactContext) : FrameLayout
     }
   }
 
-  @OptIn(kotlin.io.encoding.ExperimentalEncodingApi::class)
-  fun setImagePropertyValue(path: String, base64Data: String) {
-    android.util.Log.d("RiveReactNative", "setImagePropertyValue called: path=$path, base64Length=${base64Data.length}")
-    try {
-      val imageBytes = kotlin.io.encoding.Base64.Default.decode(base64Data)
-      android.util.Log.d("RiveReactNative", "Decoded ${imageBytes.size} bytes")
+  fun setImagePropertyValue(path: String, imageUrl: String) {
+    android.util.Log.d("RiveReactNative", "setImagePropertyValue called: path=$path, imageUrl=$imageUrl")
+    downloadImageWithRetry(imageUrl, path, 1, 3)
+  }
 
-      // Get the renderer type from the RiveFile to ensure the image is created with the correct renderer
-      val rendererType = riveAnimationView?.controller?.file?.rendererType ?: Rive.defaultRendererType
-      android.util.Log.d("RiveReactNative", "Using rendererType: $rendererType")
+  private fun downloadImageWithRetry(url: String, path: String, attempt: Int, maxAttempts: Int) {
+    android.util.Log.d("RiveReactNative", "Downloading image (attempt $attempt/$maxAttempts): $url")
 
-      val image = RiveRenderImage.make(imageBytes, rendererType)
-      android.util.Log.d("RiveReactNative", "Created RiveRenderImage: $image")
+    val requestQueue = Volley.newRequestQueue(context)
 
-      val viewModelInstance = getViewModelInstance()
-      android.util.Log.d("RiveReactNative", "ViewModelInstance: $viewModelInstance")
-
-      if (viewModelInstance != null) {
-        val imageProperty = viewModelInstance.getImageProperty(path)
-        android.util.Log.d("RiveReactNative", "ImageProperty: $imageProperty")
-        imageProperty.set(image)
-        android.util.Log.d("RiveReactNative", "Successfully set image on property")
-      } else {
-        android.util.Log.e("RiveReactNative", "ViewModelInstance is null!")
+    val request = object : Request<ByteArray>(Method.GET, url, null) {
+      override fun parseNetworkResponse(response: NetworkResponse?): Response<ByteArray> {
+        return try {
+          if (response == null) {
+            Response.error(ParseError())
+          } else {
+            Response.success(response.data, HttpHeaderParser.parseCacheHeaders(response))
+          }
+        } catch (e: Exception) {
+          Response.error(ParseError(e))
+        }
       }
-    } catch (ex: RiveException) {
-      android.util.Log.e("RiveReactNative", "RiveException in setImagePropertyValue", ex)
-      handleRiveException(ex)
-    } catch (ex: Exception) {
-      android.util.Log.e("RiveReactNative", "Exception in setImagePropertyValue", ex)
+
+      override fun deliverResponse(response: ByteArray) {
+        android.util.Log.d("RiveReactNative", "Image downloaded successfully: ${response.size} bytes")
+
+        try {
+          val rendererType = riveAnimationView?.controller?.file?.rendererType ?: Rive.defaultRendererType
+          val image = RiveRenderImage.make(response, rendererType)
+
+          // Set image on the property
+          val viewModelInstance = getViewModelInstance()
+          if (viewModelInstance != null) {
+            viewModelInstance.getImageProperty(path).set(image)
+            android.util.Log.d("RiveReactNative", "Successfully set image on property")
+          } else {
+            android.util.Log.e("RiveReactNative", "ViewModelInstance is null!")
+          }
+        } catch (ex: RiveException) {
+          android.util.Log.e("RiveReactNative", "RiveException creating image from downloaded data", ex)
+          handleRiveException(ex)
+        } catch (ex: Exception) {
+          android.util.Log.e("RiveReactNative", "Exception creating image from downloaded data", ex)
+        }
+      }
+
+      override fun deliverError(error: VolleyError) {
+        val shouldRetry = attempt < maxAttempts && (
+          error is com.android.volley.TimeoutError ||
+          error is com.android.volley.NoConnectionError ||
+          (error.networkResponse?.statusCode ?: 0) >= 500
+        )
+
+        if (shouldRetry) {
+          val delayMs = (Math.pow(2.0, (attempt - 1).toDouble()) * 1000).toLong()
+          android.util.Log.d("RiveReactNative", "Retrying image download after ${delayMs}ms")
+
+          android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+            downloadImageWithRetry(url, path, attempt + 1, maxAttempts)
+          }, delayMs)
+        } else {
+          val statusCode = error.networkResponse?.statusCode ?: 0
+          val errorMsg = when {
+            error is com.android.volley.TimeoutError -> "Timeout downloading image"
+            error is com.android.volley.NoConnectionError -> "No connection"
+            statusCode > 0 -> "HTTP error $statusCode"
+            else -> error.message ?: "Unknown error"
+          }
+          android.util.Log.e("RiveReactNative", "Failed to download image after $maxAttempts attempts: $errorMsg from $url")
+
+          // Report error to React Native
+          try {
+            val errorData = Arguments.createMap()
+            errorData.putString("type", "DataBindingError")
+            errorData.putString("message", "Failed to download image: $errorMsg")
+            sendEvent(Events.ERROR, errorData)
+          } catch (ex: Exception) {
+            android.util.Log.e("RiveReactNative", "Error reporting download failure", ex)
+          }
+        }
+      }
     }
+
+    // Set retry policy: 30 second timeout, 0 retries (we handle retries manually for better control)
+    request.retryPolicy = com.android.volley.DefaultRetryPolicy(
+      30000, // 30 second timeout
+      0,     // 0 automatic retries (we handle them manually)
+      1.0f   // backoff multiplier (not used since retries = 0)
+    )
+
+    requestQueue.add(request)
   }
 
   fun setArtboardPropertyValue(path: String, artboardName: String) {

@@ -157,9 +157,9 @@ class RiveReactNativeViewManager : SimpleViewManager<RiveReactNativeView>() {
         args?.let {
           // Don't remove the !! - some versions of Android/Kotlin/Android-Studio may return null
           val path = it.getString(0)!!
-          val urlOrData = it.getString(1)!!
-          android.util.Log.d("RiveReactNative", "ViewManager: calling view.setImagePropertyValue(path=$path, dataLength=${urlOrData.length})")
-          view.setImagePropertyValue(path, urlOrData)
+          val imageUrl = it.getString(1)!!
+          android.util.Log.d("RiveReactNative", "ViewManager: calling view.setImagePropertyValue(path=$path, imageUrl=$imageUrl)")
+          view.setImagePropertyValue(path, imageUrl)
         }
       }
 

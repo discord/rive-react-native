@@ -697,13 +697,88 @@ class RiveReactNativeView: RCTView, RivePlayerDelegate, RiveStateMachineDelegate
     }
 
 
-     func setImagePropertyValue(path: String, base64Data: String) {
-         guard let imageData = Data(base64Encoded: base64Data),
-               let decodedImage = RiveRenderImage(data: imageData) else {
+     func setImagePropertyValue(path: String, imageUrl: String) {
+         downloadImageWithRetry(url: imageUrl, path: path, attempt: 1, maxAttempts: 3)
+     }
+
+     private func downloadImageWithRetry(url: String, path: String, attempt: Int, maxAttempts: Int) {
+         guard isValidUrl(url) else {
+             var error = RNRiveError.DataBindingError
+             error.message = "Invalid image URL: \(url)"
+             onRNRiveError(error)
              return
          }
 
-         dataBindingViewModelInstance?.imageProperty(fromPath: path)?.setValue(decodedImage)
+         guard let requestUrl = URL(string: url) else {
+             var error = RNRiveError.DataBindingError
+             error.message = "Failed to create URL from string: \(url)"
+             onRNRiveError(error)
+             return
+         }
+
+         var request = URLRequest(url: requestUrl)
+         request.timeoutInterval = 30.0
+         request.cachePolicy = .returnCacheDataElseLoad
+
+         let task = URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+             guard let self = self else { return }
+
+             // Check for network errors
+             if let error = error {
+                 if attempt < maxAttempts {
+                     // Retry with exponential backoff
+                     let delay = pow(2.0, Double(attempt - 1))
+                     DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                         self.downloadImageWithRetry(url: url, path: path, attempt: attempt + 1, maxAttempts: maxAttempts)
+                     }
+                 } else {
+                     var rnError = RNRiveError.DataBindingError
+                     rnError.message = "Failed to download image after \(maxAttempts) attempts: \(error.localizedDescription)"
+                     self.onRNRiveError(rnError)
+                 }
+                 return
+             }
+
+             // Validate HTTP response
+             if let httpResponse = response as? HTTPURLResponse {
+                 guard (200...299).contains(httpResponse.statusCode) else {
+                     if attempt < maxAttempts && httpResponse.statusCode >= 500 {
+                         // Retry on server errors
+                         let delay = pow(2.0, Double(attempt - 1))
+                         DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                             self.downloadImageWithRetry(url: url, path: path, attempt: attempt + 1, maxAttempts: maxAttempts)
+                         }
+                     } else {
+                         var error = RNRiveError.DataBindingError
+                         error.message = "HTTP error \(httpResponse.statusCode) downloading image from: \(url)"
+                         self.onRNRiveError(error)
+                     }
+                     return
+                 }
+             }
+
+             // Validate and decode image data
+             guard let data = data, !data.isEmpty else {
+                 var error = RNRiveError.DataBindingError
+                 error.message = "Empty data received from URL: \(url)"
+                 self.onRNRiveError(error)
+                 return
+             }
+
+             guard let riveImage = RiveRenderImage(data: data) else {
+                 var error = RNRiveError.DataBindingError
+                 error.message = "Failed to create RiveRenderImage from downloaded data: \(url)"
+                 self.onRNRiveError(error)
+                 return
+             }
+
+             // Set image on the property
+             DispatchQueue.main.async {
+                 self.dataBindingViewModelInstance?.imageProperty(fromPath: path)?.setValue(riveImage)
+             }
+         }
+
+         task.resume()
      }
 
      func setArtboardPropertyValue(path: String, artboardName: String) {

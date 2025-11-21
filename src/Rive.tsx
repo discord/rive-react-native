@@ -923,16 +923,15 @@ const RiveContainer = React.forwardRef<RiveRef, Props>(
     );
 
     const setImage = useCallback<RiveRef['setImage']>(
-      (path: string, base64Data: string) => {
+      (path: string, imageUrl: string) => {
         console.log('[RiveReactNative JS] setImage called:', {
           path,
-          base64Length: base64Data.length,
-          base64Preview: base64Data.substring(0, 50),
+          imageUrl,
         });
         UIManager.dispatchViewManagerCommand(
           findNodeHandle(riveRef.current),
           ViewManagerMethod.setImagePropertyValue,
-          [path, base64Data]
+          [path, imageUrl]
         );
       },
       []

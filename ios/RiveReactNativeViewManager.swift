@@ -147,10 +147,10 @@ class RiveReactNativeViewManager: RCTViewManager {
     }
 
 
-    @objc func setImagePropertyValue(_ node: NSNumber, path: String, base64Data: String) {
+    @objc func setImagePropertyValue(_ node: NSNumber, path: String, imageUrl: String) {
         DispatchQueue.main.async {
             let component = self.bridge.uiManager.view(forReactTag: node) as! RiveReactNativeView
-            component.setImagePropertyValue(path: path, base64Data: base64Data)
+            component.setImagePropertyValue(path: path, imageUrl: imageUrl)
         }
     }
 

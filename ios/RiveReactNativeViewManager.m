@@ -44,7 +44,7 @@ RCT_EXTERN_METHOD(setStringPropertyValue:(nonnull NSNumber *)node path:(nonnull 
 RCT_EXTERN_METHOD(setNumberPropertyValue:(nonnull NSNumber *)node path:(nonnull NSString)path value:(nonnull NSNumber *)value)
 RCT_EXTERN_METHOD(setColorPropertyValue:(nonnull NSNumber *)node path:(nonnull NSString)path r:(nonnull NSNumber *)r g:(nonnull NSNumber *)g b:(nonnull NSNumber *)b a:(nonnull NSNumber *)a)
 RCT_EXTERN_METHOD(setEnumPropertyValue:(nonnull NSNumber *)node path:(nonnull NSString)path value:(nonnull NSString)value)
-RCT_EXTERN_METHOD(setImagePropertyValue:(nonnull NSNumber *)node path:(nonnull NSString)path base64Data:(nonnull NSString)base64Data)
+RCT_EXTERN_METHOD(setImagePropertyValue:(nonnull NSNumber *)node path:(nonnull NSString)path imageUrl:(nonnull NSString)imageUrl)
 RCT_EXTERN_METHOD(setArtboardPropertyValue:(nonnull NSNumber *)node path:(nonnull NSString)path artboardName:(nonnull NSString)artboardName)
 RCT_EXTERN_METHOD(fireTriggerProperty:(nonnull NSNumber *)node path:(nonnull NSString)path)
 RCT_EXTERN_METHOD(registerPropertyListener:(nonnull NSNumber *)node path:(nonnull NSString)path propertyType:(nonnull NSString)propertyType)
