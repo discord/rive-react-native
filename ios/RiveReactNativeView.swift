@@ -696,11 +696,11 @@ class RiveReactNativeView: RCTView, RivePlayerDelegate, RiveStateMachineDelegate
 
 
      func setImagePropertyValue(path: String, base64Data: String) {
-         guard let factory = cachedRiveFactory,
-               let imageData = Data(base64Encoded: base64Data) else {
+         guard let imageData = Data(base64Encoded: base64Data),
+               let decodedImage = RiveRenderImage(data: imageData) else {
              return
          }
-         let decodedImage = factory.decodeImage(imageData)
+
          dataBindingViewModelInstance?.imageProperty(fromPath: path)?.setValue(decodedImage)
      }
 
