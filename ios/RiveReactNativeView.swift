@@ -705,11 +705,21 @@ class RiveReactNativeView: RCTView, RivePlayerDelegate, RiveStateMachineDelegate
      }
 
      func setArtboardPropertyValue(path: String, artboardName: String) {
-         guard let file = viewModel?.riveModel?.riveFile,
-               let artboard = try? file.bindableArtboard(withName: artboardName) else {
+         guard let file = viewModel?.riveModel?.riveFile else {
+             var error = RNRiveError.DataBindingError
+             error.message = "RiveFile not available for artboard binding"
+             onRNRiveError(error)
              return
          }
-         dataBindingViewModelInstance?.artboardProperty(fromPath: path)?.setValue(artboard)
+
+         do {
+             let bindableArtboard = try file.bindableArtboard(withName: artboardName)
+             dataBindingViewModelInstance?.artboardProperty(fromPath: path)?.setValue(bindableArtboard)
+         } catch {
+             var rnError = RNRiveError.DataBindingError
+             rnError.message = "Failed to get bindable artboard '\(artboardName)': \(error.localizedDescription)"
+             onRNRiveError(rnError)
+         }
      }
 
 
