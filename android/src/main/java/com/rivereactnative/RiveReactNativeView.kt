@@ -492,16 +492,6 @@ class RiveReactNativeView(private val context: ThemedReactContext) : FrameLayout
             else -> error.message ?: "Unknown error"
           }
           android.util.Log.e("RiveReactNative", "Failed to download image after $maxAttempts attempts: $errorMsg from $url")
-
-          // Report error to React Native
-          try {
-            val errorData = Arguments.createMap()
-            errorData.putString("type", "DataBindingError")
-            errorData.putString("message", "Failed to download image: $errorMsg")
-            sendEvent(Events.ERROR, errorData)
-          } catch (ex: Exception) {
-            android.util.Log.e("RiveReactNative", "Error reporting download failure", ex)
-          }
         }
       }
     }
