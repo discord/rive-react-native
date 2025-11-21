@@ -423,6 +423,60 @@ class RiveReactNativeView(private val context: ThemedReactContext) : FrameLayout
     }
   }
 
+  @OptIn(kotlin.io.encoding.ExperimentalEncodingApi::class)
+  fun setImagePropertyValue(path: String, base64Data: String) {
+    android.util.Log.d("RiveReactNative", "setImagePropertyValue called: path=$path, base64Length=${base64Data.length}")
+    try {
+      val imageBytes = kotlin.io.encoding.Base64.Default.decode(base64Data)
+      android.util.Log.d("RiveReactNative", "Decoded ${imageBytes.size} bytes")
+
+      // Get the renderer type from the RiveFile to ensure the image is created with the correct renderer
+      val rendererType = riveAnimationView?.controller?.file?.rendererType ?: Rive.defaultRendererType
+      android.util.Log.d("RiveReactNative", "Using rendererType: $rendererType")
+
+      val image = RiveRenderImage.make(imageBytes, rendererType)
+      android.util.Log.d("RiveReactNative", "Created RiveRenderImage: $image")
+
+      val viewModelInstance = getViewModelInstance()
+      android.util.Log.d("RiveReactNative", "ViewModelInstance: $viewModelInstance")
+
+      if (viewModelInstance != null) {
+        val imageProperty = viewModelInstance.getImageProperty(path)
+        android.util.Log.d("RiveReactNative", "ImageProperty: $imageProperty")
+        imageProperty.set(image)
+        android.util.Log.d("RiveReactNative", "Successfully set image on property")
+      } else {
+        android.util.Log.e("RiveReactNative", "ViewModelInstance is null!")
+      }
+    } catch (ex: RiveException) {
+      android.util.Log.e("RiveReactNative", "RiveException in setImagePropertyValue", ex)
+      handleRiveException(ex)
+    } catch (ex: Exception) {
+      android.util.Log.e("RiveReactNative", "Exception in setImagePropertyValue", ex)
+    }
+  }
+
+  fun setArtboardPropertyValue(path: String, artboardName: String) {
+    try {
+      val file = riveAnimationView?.controller?.file
+      if (file == null) {
+        android.util.Log.e("RiveReactNative", "File is null, cannot get artboard")
+        return
+      }
+
+      val artboard = file.artboard(artboardName)
+      val viewModelInstance = getViewModelInstance()
+
+      if (viewModelInstance != null) {
+        val artboardProperty = viewModelInstance.getArtboardProperty(path)
+        artboardProperty.set(artboard)
+      }
+    } catch (ex: RiveException) {
+      handleRiveException(ex)
+    }
+  }
+
+
   fun fireTriggerProperty(path: String) {
     try {
       getViewModelInstance()?.getTriggerProperty(path)?.trigger()
@@ -454,12 +508,22 @@ class RiveReactNativeView(private val context: ThemedReactContext) : FrameLayout
         RNPropertyType.Color -> viewModelInstance.getColorProperty(path)
         RNPropertyType.Enum -> viewModelInstance.getEnumProperty(path)
         RNPropertyType.Trigger -> viewModelInstance.getTriggerProperty(path)
+        RNPropertyType.Artboard -> viewModelInstance.getArtboardProperty(path)
+        RNPropertyType.Image -> viewModelInstance.getImageProperty(path)
       }
       val job = scope.launch {
         when (propertyTypeEnum) {
           RNPropertyType.Trigger -> {
             // We drop the first value as a trigger has no initial value
             property.valueFlow.drop(1).collect { _ ->
+              sendEvent(key, null)
+            }
+          }
+          RNPropertyType.Image -> {
+            property.valueFlow.collect { value ->
+              // Note: RiveRenderImage doesn't expose bytes, so we send null
+              // This means image property changes can be detected but the image data
+              // itself won't be sent back to React Native
               sendEvent(key, null)
             }
           }

@@ -6,6 +6,8 @@ enum class RNPropertyType(private val mValue: kotlin.String) {
   Boolean("boolean"),
   Color("color"),
   Trigger("trigger"),
+  Artboard("artboard"),
+  Image("image"),
   Enum("enum");
 
   override fun toString(): kotlin.String {

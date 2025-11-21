@@ -47,6 +47,8 @@ export type RiveRef = {
   setNumber: (path: string, value: number) => void;
   setColor: (path: string, color: RiveRGBA | string) => void;
   setEnum: (path: string, value: string) => void;
+  setImage: (path: string, base64Data: string) => void;
+  setArtboard: (path: string, artboardName: string) => void;
   trigger: (path: string) => void;
   internalNativeEmitter: () => RiveNativeEventEmitter;
   viewTag: () => number | null;
@@ -77,6 +79,8 @@ export enum ViewManagerMethod {
   setColorPropertyValue = 'setColorPropertyValue',
   setEnumPropertyValue = 'setEnumPropertyValue',
   fireTriggerProperty = 'fireTriggerProperty',
+  setImagePropertyValue = 'setImagePropertyValue',
+  setArtboardPropertyValue = 'setArtboardPropertyValue',
 }
 
 export enum Fit {
@@ -206,6 +210,8 @@ export enum PropertyType {
   Color = 'color',
   Trigger = 'trigger',
   Enum = 'enum',
+  Image = 'image',
+  Artboard = 'artboard',
 }
 
 export type DataBindBy =

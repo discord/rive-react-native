@@ -14,7 +14,9 @@ enum RNPropertyType: String {
     case Color = "color"
     case Trigger = "trigger"
     case Enum = "enum"
-    
+    case Artboard = "artboard"
+    case Image = "image"
+
     static func mapToRNPropertyType(value: String) -> RNPropertyType? {
         if let rnEnum = RNPropertyType(rawValue: value) {
             return rnEnum
