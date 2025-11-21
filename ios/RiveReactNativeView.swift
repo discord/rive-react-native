@@ -695,24 +695,22 @@ class RiveReactNativeView: RCTView, RivePlayerDelegate, RiveStateMachineDelegate
     }
 
 
-    func setImagePropertyValue(path: String, base64Data: String) {
-        guard let factory = cachedRiveFactory,
-              let imageData = Data(base64Encoded: base64Data),
-              let decodedImage = factory.decodeImage(imageData) else {
-            return
-        }
+     func setImagePropertyValue(path: String, base64Data: String) {
+         guard let factory = cachedRiveFactory,
+               let imageData = Data(base64Encoded: base64Data) else {
+             return
+         }
+         let decodedImage = factory.decodeImage(imageData)
+         dataBindingViewModelInstance?.imageProperty(fromPath: path)?.setValue(decodedImage)
+     }
 
-        dataBindingViewModelInstance?.imageProperty(fromPath: path)?.setValue(decodedImage)
-    }
-
-    func setArtboardPropertyValue(path: String, artboardName: String) {
-        guard let file = riveFile,
-              let artboard = try? file.bindableArtboard(withName: artboardName) else {
-            return
-        }
-
-        dataBindingViewModelInstance?.artboardProperty(fromPath: path)?.setValue(artboard)
-    }
+     func setArtboardPropertyValue(path: String, artboardName: String) {
+         guard let file = viewModel?.riveModel?.riveFile,
+               let artboard = try? file.bindableArtboard(withName: artboardName) else {
+             return
+         }
+         dataBindingViewModelInstance?.artboardProperty(fromPath: path)?.setValue(artboard)
+     }
 
 
     func fireTriggerProperty(path: String) {
