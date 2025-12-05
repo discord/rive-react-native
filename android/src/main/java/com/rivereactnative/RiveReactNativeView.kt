@@ -870,12 +870,9 @@ class RiveReactNativeView(private val context: ThemedReactContext) : FrameLayout
   }
 
   fun setArtboardName(artboardName: String) {
-    try {
-      this.artboardName = artboardName
-      riveAnimationView?.artboardName = artboardName // it causes reloading
-    } catch (ex: RiveException) {
-      handleRiveException(ex)
-    }
+    if (this.artboardName == artboardName) return
+    this.artboardName = artboardName
+    shouldBeReloaded = true
   }
 
   fun setAnimationName(animationName: String) {
