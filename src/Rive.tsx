@@ -343,6 +343,12 @@ function useRivePropertyListener<T>(
             typeof newValue === 'string' ? parseColor(newValue) : newValue;
           riveRef.setColor(path, parsedColor as RiveRGBA);
           break;
+        case PropertyType.Image:
+          riveRef.setImage(path, newValue as string);
+          break;
+        case PropertyType.Artboard:
+          riveRef.setArtboard(path, newValue as string);
+          break;
         default:
           if (__DEV__) {
             console.warn(
@@ -919,6 +925,32 @@ const RiveContainer = React.forwardRef<RiveRef, Props>(
       []
     );
 
+    const setImage = useCallback<RiveRef['setImage']>(
+      (path: string, imageUrl: string) => {
+        console.log('[RiveReactNative JS] setImage called:', {
+          path,
+          imageUrl,
+        });
+        UIManager.dispatchViewManagerCommand(
+          findNodeHandle(riveRef.current),
+          ViewManagerMethod.setImagePropertyValue,
+          [path, imageUrl]
+        );
+      },
+      []
+    );
+
+    const setArtboard = useCallback<RiveRef['setArtboard']>(
+      (path: string, artboardName: string) => {
+        UIManager.dispatchViewManagerCommand(
+          findNodeHandle(riveRef.current),
+          ViewManagerMethod.setArtboardPropertyValue,
+          [path, artboardName]
+        );
+      },
+      []
+    );
+
     const trigger = useCallback<RiveRef['trigger']>((path: string) => {
       UIManager.dispatchViewManagerCommand(
         findNodeHandle(riveRef.current),
@@ -967,6 +999,8 @@ const RiveContainer = React.forwardRef<RiveRef, Props>(
         setNumber,
         setColor,
         setEnum,
+        setImage,
+        setArtboard,
         trigger,
         internalNativeEmitter,
         viewTag,
@@ -993,6 +1027,8 @@ const RiveContainer = React.forwardRef<RiveRef, Props>(
         setNumber,
         setColor,
         setEnum,
+        setImage,
+        setArtboard,
         trigger,
         internalNativeEmitter,
         viewTag,

@@ -135,6 +135,14 @@ class RiveReactNativeViewManager: RCTViewManager {
         withRiveReactNativeView(node) { $0.registerPropertyListener(path: path, propertyType: propertyType) }
     }
 
+    @objc func setImagePropertyValue(_ node: NSNumber, path: String, imageUrl: String) {
+        withRiveReactNativeView(node) { $0.setImagePropertyValue(path: path, imageUrl: imageUrl) }
+    }
+
+    @objc func setArtboardPropertyValue(_ node: NSNumber, path: String, artboardName: String) {
+        withRiveReactNativeView(node) { $0.setArtboardPropertyValue(path: path, artboardName: artboardName) }
+    }
+
     @objc static override func requiresMainQueueSetup() -> Bool {
         return false
     }
