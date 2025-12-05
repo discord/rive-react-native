@@ -418,6 +418,7 @@ type RiveProps = {
       message: string;
     }>
   ) => void;
+  onReady?: () => void;
   isUserHandlingErrors: boolean;
   autoplay?: boolean;
   fit: Fit;
@@ -445,6 +446,7 @@ type Props = {
   onStateChanged?: (stateMachineName: string, stateName: string) => void;
   onRiveEventReceived?: (event: RiveGeneralEvent | RiveOpenUrlEvent) => void;
   onError?: (rnRiveError: RNRiveError) => void;
+  onReady?: () => void;
   fit?: Fit;
   layoutScaleFactor?: number;
   style?: ViewStyle;
@@ -478,6 +480,7 @@ const RiveContainer = React.forwardRef<RiveRef, Props>(
       onStateChanged,
       onRiveEventReceived,
       onError,
+      onReady,
       style,
       autoplay = true,
       resourceName: resourceNameProp,
@@ -641,6 +644,25 @@ const RiveContainer = React.forwardRef<RiveRef, Props>(
       },
       [onError]
     );
+
+    // Listen for the native "loaded" event and call onReady
+    useEffect(() => {
+      if (!onReady) return;
+
+      const viewTag = findNodeHandle(riveRef.current);
+      if (!viewTag) return;
+
+      const subscription = nativeEventEmitter.addListener(
+        `RiveReactNativeLoaded:${viewTag}`,
+        () => {
+          onReady();
+        }
+      );
+
+      return () => {
+        subscription.remove();
+      };
+    }, [onReady]);
 
     const play = useCallback<RiveRef[ViewManagerMethod.play]>(
       (
