@@ -164,10 +164,12 @@ class RiveReactNativeViewManager : SimpleViewManager<RiveReactNativeView>() {
       }
 
       "setBase64ImagePropertyValue" -> {
+        android.util.Log.d("RiveReactNative", "ViewManager: setBase64ImagePropertyValue command received")
         args?.let {
           // Don't remove the !! - some versions of Android/Kotlin/Android-Studio may return null
           val path = it.getString(0)!!
           val base64String = it.getString(1)!!
+          android.util.Log.d("RiveReactNative", "ViewManager: calling view.setBase64ImagePropertyValue(path=$path, base64Length=${base64String.length})")
           view.setBase64ImagePropertyValue(path, base64String)
         }
       }

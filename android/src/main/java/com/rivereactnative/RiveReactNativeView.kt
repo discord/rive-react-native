@@ -457,13 +457,41 @@ class RiveReactNativeView(private val context: ThemedReactContext) : FrameLayout
   }
 
   fun setBase64ImagePropertyValue(path: String, base64String: String) {
+    android.util.Log.d("RiveReactNative", "setBase64ImagePropertyValue called: path=$path, base64Length=${base64String.length}")
     try {
       val decodedBytes = android.util.Base64.decode(base64String, android.util.Base64.DEFAULT)
+      android.util.Log.d("RiveReactNative", "Decoded ${decodedBytes.size} bytes from base64")
+
       val rendererType = riveAnimationView?.controller?.file?.rendererType ?: Rive.defaultRendererType
+      android.util.Log.d("RiveReactNative", "Using renderer type: $rendererType")
+
       val image = RiveRenderImage.make(decodedBytes, rendererType)
-      getViewModelInstance()?.getImageProperty(path)?.set(image)
+      android.util.Log.d("RiveReactNative", "Created RiveRenderImage successfully")
+
+      val viewModelInstance = getViewModelInstance()
+      if (viewModelInstance != null) {
+        viewModelInstance.getImageProperty(path).set(image)
+        android.util.Log.d("RiveReactNative", "Successfully set base64 image on property")
+      } else {
+        android.util.Log.e("RiveReactNative", "ViewModelInstance is null!")
+      }
+    } catch (ex: IllegalArgumentException) {
+      android.util.Log.e("RiveReactNative", "Failed to decode base64 string", ex)
+      if (isUserHandlingErrors) {
+        val rnRiveError = RNRiveError.DataBindingError
+        rnRiveError.message = "Failed to decode base64 string: ${ex.message}"
+        sendErrorToRN(rnRiveError)
+      }
     } catch (ex: RiveException) {
+      android.util.Log.e("RiveReactNative", "RiveException in setBase64ImagePropertyValue", ex)
       handleRiveException(ex)
+    } catch (ex: Exception) {
+      android.util.Log.e("RiveReactNative", "Unexpected exception in setBase64ImagePropertyValue", ex)
+      if (isUserHandlingErrors) {
+        val rnRiveError = RNRiveError.DataBindingError
+        rnRiveError.message = "Failed to set base64 image: ${ex.message}"
+        sendErrorToRN(rnRiveError)
+      }
     }
   }
 
