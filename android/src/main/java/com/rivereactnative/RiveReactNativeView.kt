@@ -118,6 +118,11 @@ class RiveReactNativeView(private val context: ThemedReactContext) : FrameLayout
   private var dataBindingConfig: DataBindingConfig? = null
   private val propertyListeners = mutableMapOf<String, PropertyListener>()
 
+  // Image download management
+  private val imageRequestQueue: com.android.volley.RequestQueue by lazy {
+    Volley.newRequestQueue(context)
+  }
+
   enum class Events(private val mName: String) {
     PLAY("onPlay"), PAUSE("onPause"), STOP("onStop"), LOOP_END("onLoopEnd"), STATE_CHANGED("onStateChanged"), RIVE_EVENT(
       "onRiveEventReceived"
@@ -194,6 +199,12 @@ class RiveReactNativeView(private val context: ThemedReactContext) : FrameLayout
 
   override fun onDetachedFromWindow() {
     if (willDispose) {
+      // Cancel all pending image downloads
+      if (imageRequestQueue != null) {
+        imageRequestQueue.cancelAll { true }
+        imageRequestQueue.stop()
+      }
+
       scope.cancel()
       assetStore?.dispose()
       riveAnimationView?.dispose()
@@ -448,8 +459,6 @@ class RiveReactNativeView(private val context: ThemedReactContext) : FrameLayout
   private fun downloadImageWithRetry(url: String, path: String, attempt: Int, maxAttempts: Int) {
     android.util.Log.d("RiveReactNative", "Downloading image (attempt $attempt/$maxAttempts): $url")
 
-    val requestQueue = Volley.newRequestQueue(context)
-
     val request = object : Request<ByteArray>(Method.GET, url, null) {
       override fun parseNetworkResponse(response: NetworkResponse?): Response<ByteArray> {
         return try {
@@ -464,19 +473,28 @@ class RiveReactNativeView(private val context: ThemedReactContext) : FrameLayout
       }
 
       override fun deliverResponse(response: ByteArray) {
-        android.util.Log.d("RiveReactNative", "Image downloaded successfully: ${response.size} bytes")
+        android.util.Log.d("RiveReactNative", "Image downloaded successfully: ${response.size} bytes.")
 
         try {
           val rendererType = riveAnimationView?.controller?.file?.rendererType ?: Rive.defaultRendererType
           val image = RiveRenderImage.make(response, rendererType)
 
-          // Set image on the property
-          val viewModelInstance = getViewModelInstance()
-          if (viewModelInstance != null) {
-            viewModelInstance.getImageProperty(path).set(image)
-            android.util.Log.d("RiveReactNative", "Successfully set image on property")
-          } else {
-            android.util.Log.e("RiveReactNative", "ViewModelInstance is null!")
+          // CRITICAL: Set image on the property on the MAIN THREAD to avoid race conditions
+          android.os.Handler(android.os.Looper.getMainLooper()).post {
+            try {
+              val viewModelInstance = getViewModelInstance()
+              if (viewModelInstance != null) {
+                viewModelInstance.getImageProperty(path).set(image)
+                android.util.Log.d("RiveReactNative", "Successfully set image on property")
+              } else {
+                android.util.Log.e("RiveReactNative", "ViewModelInstance is null!")
+              }
+            } catch (ex: RiveException) {
+              android.util.Log.e("RiveReactNative", "RiveException setting image property", ex)
+              handleRiveException(ex)
+            } catch (ex: Exception) {
+              android.util.Log.e("RiveReactNative", "Exception setting image property", ex)
+            }
           }
         } catch (ex: RiveException) {
           android.util.Log.e("RiveReactNative", "RiveException creating image from downloaded data", ex)
@@ -487,6 +505,8 @@ class RiveReactNativeView(private val context: ThemedReactContext) : FrameLayout
       }
 
       override fun deliverError(error: VolleyError) {
+        android.util.Log.d("RiveReactNative", "Image download error.")
+
         val shouldRetry = attempt < maxAttempts && (
           error is com.android.volley.TimeoutError ||
           error is com.android.volley.NoConnectionError ||
@@ -520,7 +540,8 @@ class RiveReactNativeView(private val context: ThemedReactContext) : FrameLayout
       1.0f   // backoff multiplier (not used since retries = 0)
     )
 
-    requestQueue.add(request)
+    // Use the shared request queue instead of creating a new one
+    imageRequestQueue.add(request)
   }
 
   fun setArtboardPropertyValue(path: String, artboardName: String) {
