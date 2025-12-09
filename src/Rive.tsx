@@ -647,10 +647,10 @@ const RiveContainer = React.forwardRef<RiveRef, Props>(
 
     // Listen for the native "loaded" event and call onReady
     useEffect(() => {
-      if (!onReady) return;
+      if (!onReady) return () => {};
 
       const viewTag = findNodeHandle(riveRef.current);
-      if (!viewTag) return;
+      if (!viewTag) return () => {};
 
       const subscription = nativeEventEmitter.addListener(
         `RiveReactNativeLoaded:${viewTag}`,
@@ -962,6 +962,17 @@ const RiveContainer = React.forwardRef<RiveRef, Props>(
       []
     );
 
+    const setBase64Image = useCallback<RiveRef['setBase64Image']>(
+      (path: string, base64String: string) => {
+        UIManager.dispatchViewManagerCommand(
+          findNodeHandle(riveRef.current),
+          ViewManagerMethod.setBase64ImagePropertyValue,
+          [path, base64String]
+        );
+      },
+      []
+    );
+
     const setArtboard = useCallback<RiveRef['setArtboard']>(
       (path: string, artboardName: string) => {
         UIManager.dispatchViewManagerCommand(
@@ -1022,6 +1033,7 @@ const RiveContainer = React.forwardRef<RiveRef, Props>(
         setColor,
         setEnum,
         setImage,
+        setBase64Image,
         setArtboard,
         trigger,
         internalNativeEmitter,
@@ -1050,6 +1062,7 @@ const RiveContainer = React.forwardRef<RiveRef, Props>(
         setColor,
         setEnum,
         setImage,
+        setBase64Image,
         setArtboard,
         trigger,
         internalNativeEmitter,

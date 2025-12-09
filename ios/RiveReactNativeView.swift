@@ -734,6 +734,26 @@ class RiveReactNativeView: RCTView, RivePlayerDelegate, RiveStateMachineDelegate
          downloadImageWithRetry(url: imageUrl, path: path, attempt: 1, maxAttempts: 3)
      }
 
+    func setBase64ImagePropertyValue(path: String, base64String: String) {
+        guard let data = Data(base64Encoded: base64String) else {
+            var error = RNRiveError.DataBindingError
+            error.message = "Failed to decode base64 string"
+            onRNRiveError(error)
+            return
+        }
+
+        guard let riveImage = RiveRenderImage(data: data) else {
+            var error = RNRiveError.DataBindingError
+            error.message = "Failed to create RiveRenderImage from base64 data"
+            onRNRiveError(error)
+            return
+        }
+
+        DispatchQueue.main.async {
+            self.dataBindingViewModelInstance?.imageProperty(fromPath: path)?.setValue(riveImage)
+        }
+    }
+
     private func downloadImageWithRetry(url: String, path: String, attempt: Int, maxAttempts: Int) {
         guard isValidUrl(url) else {
             var error = RNRiveError.DataBindingError

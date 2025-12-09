@@ -48,6 +48,7 @@ export type RiveRef = {
   setColor: (path: string, color: RiveRGBA | string) => void;
   setEnum: (path: string, value: string) => void;
   setImage: (path: string, imageUrl: string) => void;
+  setBase64Image: (path: string, base64String: string) => void;
   setArtboard: (path: string, artboardName: string) => void;
   trigger: (path: string) => void;
   internalNativeEmitter: () => RiveNativeEventEmitter;
@@ -79,6 +80,7 @@ export enum ViewManagerMethod {
   setColorPropertyValue = 'setColorPropertyValue',
   setEnumPropertyValue = 'setEnumPropertyValue',
   setImagePropertyValue = 'setImagePropertyValue',
+  setBase64ImagePropertyValue = 'setBase64ImagePropertyValue',
   setArtboardPropertyValue = 'setArtboardPropertyValue',
   fireTriggerProperty = 'fireTriggerProperty',
 }

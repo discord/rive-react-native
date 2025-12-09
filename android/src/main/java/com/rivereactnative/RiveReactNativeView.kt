@@ -456,6 +456,17 @@ class RiveReactNativeView(private val context: ThemedReactContext) : FrameLayout
     }
   }
 
+  fun setBase64ImagePropertyValue(path: String, base64String: String) {
+    try {
+      val decodedBytes = android.util.Base64.decode(base64String, android.util.Base64.DEFAULT)
+      val rendererType = riveAnimationView?.controller?.file?.rendererType ?: Rive.defaultRendererType
+      val image = RiveRenderImage.make(decodedBytes, rendererType)
+      getViewModelInstance()?.getImageProperty(path)?.set(image)
+    } catch (ex: RiveException) {
+      handleRiveException(ex)
+    }
+  }
+
   private fun downloadImageWithRetry(url: String, path: String, attempt: Int, maxAttempts: Int) {
     android.util.Log.d("RiveReactNative", "Downloading image (attempt $attempt/$maxAttempts): $url")
 

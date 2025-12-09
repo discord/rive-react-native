@@ -163,6 +163,15 @@ class RiveReactNativeViewManager : SimpleViewManager<RiveReactNativeView>() {
         }
       }
 
+      "setBase64ImagePropertyValue" -> {
+        args?.let {
+          // Don't remove the !! - some versions of Android/Kotlin/Android-Studio may return null
+          val path = it.getString(0)!!
+          val base64String = it.getString(1)!!
+          view.setBase64ImagePropertyValue(path, base64String)
+        }
+      }
+
       "setArtboardPropertyValue" -> {
         args?.let {
           // Don't remove the !! - some versions of Android/Kotlin/Android-Studio may return null

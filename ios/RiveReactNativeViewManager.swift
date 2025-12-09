@@ -139,6 +139,10 @@ class RiveReactNativeViewManager: RCTViewManager {
         withRiveReactNativeView(node) { $0.setImagePropertyValue(path: path, imageUrl: imageUrl) }
     }
 
+    @objc func setBase64ImagePropertyValue(_ node: NSNumber, path: String, base64String: String) {
+        withRiveReactNativeView(node) { $0.setBase64ImagePropertyValue(path: path, base64String: base64String) }
+    }
+
     @objc func setArtboardPropertyValue(_ node: NSNumber, path: String, artboardName: String) {
         withRiveReactNativeView(node) { $0.setArtboardPropertyValue(path: path, artboardName: artboardName) }
     }

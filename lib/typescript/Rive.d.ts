@@ -50,6 +50,7 @@ type RiveProps = {
         type: string;
         message: string;
     }>) => void;
+    onReady?: () => void;
     isUserHandlingErrors: boolean;
     autoplay?: boolean;
     fit: Fit;
@@ -74,6 +75,7 @@ type Props = {
     onStateChanged?: (stateMachineName: string, stateName: string) => void;
     onRiveEventReceived?: (event: RiveGeneralEvent | RiveOpenUrlEvent) => void;
     onError?: (rnRiveError: RNRiveError) => void;
+    onReady?: () => void;
     fit?: Fit;
     layoutScaleFactor?: number;
     style?: ViewStyle;
