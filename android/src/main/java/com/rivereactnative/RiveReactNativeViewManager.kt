@@ -152,6 +152,26 @@ class RiveReactNativeViewManager : SimpleViewManager<RiveReactNativeView>() {
         }
       }
 
+      "setImagePropertyValue" -> {
+        android.util.Log.d("RiveReactNative", "ViewManager: setImagePropertyValue command received")
+        args?.let {
+          // Don't remove the !! - some versions of Android/Kotlin/Android-Studio may return null
+          val path = it.getString(0)!!
+          val imageUrl = it.getString(1)!!
+          android.util.Log.d("RiveReactNative", "ViewManager: calling view.setImagePropertyValue(path=$path, imageUrl=$imageUrl)")
+          view.setImagePropertyValue(path, imageUrl)
+        }
+      }
+
+      "setArtboardPropertyValue" -> {
+        args?.let {
+          // Don't remove the !! - some versions of Android/Kotlin/Android-Studio may return null
+          val path = it.getString(0)!!
+          val artboardName = it.getString(1)!!
+          view.setArtboardPropertyValue(path, artboardName)
+        }
+      }
+
       "fireTriggerProperty" -> {
         args?.let {
           // Don't remove the !! - some versions of Android/Kotlin/Android-Studio may return null

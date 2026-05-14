@@ -73,6 +73,16 @@ class ReactNativeRiveAnimationView(private val context: ThemedReactContext) :
     (lifecycleObserver as ReactNativeRiveViewLifecycleObserver).dispose()
   }
 
+  override fun onAttachedToWindow() {
+    try {
+      super.onAttachedToWindow()
+    } catch (e: RiveException) {
+      RiveReactNativeErrorHandler.handleError(e, "ReactNativeRiveAnimationView.onAttachedToWindow - RiveException")
+    } catch (e: Exception) {
+      RiveReactNativeErrorHandler.handleError(e, "ReactNativeRiveAnimationView.onAttachedToWindow - Exception")
+    }
+  }
+
   @SuppressLint("VisibleForTests")
   override fun createObserver(): LifecycleObserver {
     return ReactNativeRiveViewLifecycleObserver(
@@ -107,6 +117,11 @@ class RiveReactNativeView(private val context: ThemedReactContext) : FrameLayout
   private val scope = CoroutineScope(Dispatchers.Default)
   private var dataBindingConfig: DataBindingConfig? = null
   private val propertyListeners = mutableMapOf<String, PropertyListener>()
+
+  // Image download management
+  private val imageRequestQueue: com.android.volley.RequestQueue by lazy {
+    Volley.newRequestQueue(context)
+  }
 
   enum class Events(private val mName: String) {
     PLAY("onPlay"), PAUSE("onPause"), STOP("onStop"), LOOP_END("onLoopEnd"), STATE_CHANGED("onStateChanged"), RIVE_EVENT(
@@ -184,6 +199,12 @@ class RiveReactNativeView(private val context: ThemedReactContext) : FrameLayout
 
   override fun onDetachedFromWindow() {
     if (willDispose) {
+      // Cancel all pending image downloads
+      if (imageRequestQueue != null) {
+        imageRequestQueue.cancelAll { true }
+        imageRequestQueue.stop()
+      }
+
       scope.cancel()
       assetStore?.dispose()
       riveAnimationView?.dispose()
@@ -426,6 +447,124 @@ class RiveReactNativeView(private val context: ThemedReactContext) : FrameLayout
     }
   }
 
+  fun setImagePropertyValue(path: String, imageUrl: String) {
+    android.util.Log.d("RiveReactNative", "setImagePropertyValue called: path=$path, imageUrl=$imageUrl")
+    try {
+      downloadImageWithRetry(imageUrl, path, 1, 3)
+    } catch (ex: RiveException) {
+      handleRiveException(ex)
+    }
+  }
+
+  private fun downloadImageWithRetry(url: String, path: String, attempt: Int, maxAttempts: Int) {
+    android.util.Log.d("RiveReactNative", "Downloading image (attempt $attempt/$maxAttempts): $url")
+
+    val request = object : Request<ByteArray>(Method.GET, url, null) {
+      override fun parseNetworkResponse(response: NetworkResponse?): Response<ByteArray> {
+        return try {
+          if (response == null) {
+            Response.error(ParseError())
+          } else {
+            Response.success(response.data, HttpHeaderParser.parseCacheHeaders(response))
+          }
+        } catch (e: Exception) {
+          Response.error(ParseError(e))
+        }
+      }
+
+      override fun deliverResponse(response: ByteArray) {
+        android.util.Log.d("RiveReactNative", "Image downloaded successfully: ${response.size} bytes.")
+
+        try {
+          val rendererType = riveAnimationView?.controller?.file?.rendererType ?: Rive.defaultRendererType
+          val image = RiveRenderImage.make(response, rendererType)
+
+          // CRITICAL: Set image on the property on the MAIN THREAD to avoid race conditions
+          android.os.Handler(android.os.Looper.getMainLooper()).post {
+            try {
+              val viewModelInstance = getViewModelInstance()
+              if (viewModelInstance != null) {
+                viewModelInstance.getImageProperty(path).set(image)
+                android.util.Log.d("RiveReactNative", "Successfully set image on property")
+              } else {
+                android.util.Log.e("RiveReactNative", "ViewModelInstance is null!")
+              }
+            } catch (ex: RiveException) {
+              android.util.Log.e("RiveReactNative", "RiveException setting image property", ex)
+              handleRiveException(ex)
+            } catch (ex: Exception) {
+              android.util.Log.e("RiveReactNative", "Exception setting image property", ex)
+            }
+          }
+        } catch (ex: RiveException) {
+          android.util.Log.e("RiveReactNative", "RiveException creating image from downloaded data", ex)
+          handleRiveException(ex)
+        } catch (ex: Exception) {
+          android.util.Log.e("RiveReactNative", "Exception creating image from downloaded data", ex)
+        }
+      }
+
+      override fun deliverError(error: VolleyError) {
+        android.util.Log.d("RiveReactNative", "Image download error.")
+
+        val shouldRetry = attempt < maxAttempts && (
+          error is com.android.volley.TimeoutError ||
+          error is com.android.volley.NoConnectionError ||
+          (error.networkResponse?.statusCode ?: 0) >= 500
+        )
+
+        if (shouldRetry) {
+          val delayMs = (Math.pow(2.0, (attempt - 1).toDouble()) * 1000).toLong()
+          android.util.Log.d("RiveReactNative", "Retrying image download after ${delayMs}ms")
+
+          android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+            downloadImageWithRetry(url, path, attempt + 1, maxAttempts)
+          }, delayMs)
+        } else {
+          val statusCode = error.networkResponse?.statusCode ?: 0
+          val errorMsg = when {
+            error is com.android.volley.TimeoutError -> "Timeout downloading image"
+            error is com.android.volley.NoConnectionError -> "No connection"
+            statusCode > 0 -> "HTTP error $statusCode"
+            else -> error.message ?: "Unknown error"
+          }
+          android.util.Log.e("RiveReactNative", "Failed to download image after $maxAttempts attempts: $errorMsg from $url")
+        }
+      }
+    }
+
+    // Set retry policy: 30 second timeout, 0 retries (we handle retries manually for better control)
+    request.retryPolicy = com.android.volley.DefaultRetryPolicy(
+      30000, // 30 second timeout
+      0,     // 0 automatic retries (we handle them manually)
+      1.0f   // backoff multiplier (not used since retries = 0)
+    )
+
+    // Use the shared request queue instead of creating a new one
+    imageRequestQueue.add(request)
+  }
+
+  fun setArtboardPropertyValue(path: String, artboardName: String) {
+    try {
+      val file = riveAnimationView?.controller?.file
+      if (file == null) {
+        android.util.Log.e("RiveReactNative", "File is null, cannot get artboard")
+        return
+      }
+
+      val artboard = file.artboard(artboardName)
+      val viewModelInstance = getViewModelInstance()
+
+      if (viewModelInstance != null) {
+        val artboardProperty = viewModelInstance.getArtboardProperty(path)
+        artboardProperty.set(artboard)
+      }
+    } catch (ex: RiveException) {
+      handleRiveException(ex)
+    }
+  }
+
+
   fun fireTriggerProperty(path: String) {
     try {
       getViewModelInstance()?.getTriggerProperty(path)?.trigger()
@@ -457,12 +596,22 @@ class RiveReactNativeView(private val context: ThemedReactContext) : FrameLayout
         RNPropertyType.Color -> viewModelInstance.getColorProperty(path)
         RNPropertyType.Enum -> viewModelInstance.getEnumProperty(path)
         RNPropertyType.Trigger -> viewModelInstance.getTriggerProperty(path)
+        RNPropertyType.Artboard -> viewModelInstance.getArtboardProperty(path)
+        RNPropertyType.Image -> viewModelInstance.getImageProperty(path)
       }
       val job = scope.launch {
         when (propertyTypeEnum) {
           RNPropertyType.Trigger -> {
             // We drop the first value as a trigger has no initial value
             property.valueFlow.drop(1).collect { _ ->
+              sendEvent(key, null)
+            }
+          }
+          RNPropertyType.Image -> {
+            property.valueFlow.collect { _ ->
+              // Note: RiveRenderImage doesn't expose bytes, so we send null
+              // This means image property changes can be detected but the image data
+              // itself won't be sent back to React Native
               sendEvent(key, null)
             }
           }
@@ -742,12 +891,9 @@ class RiveReactNativeView(private val context: ThemedReactContext) : FrameLayout
   }
 
   fun setArtboardName(artboardName: String) {
-    try {
-      this.artboardName = artboardName
-      riveAnimationView?.artboardName = artboardName // it causes reloading
-    } catch (ex: RiveException) {
-      handleRiveException(ex)
-    }
+    if (this.artboardName == artboardName) return
+    this.artboardName = artboardName
+    shouldBeReloaded = true
   }
 
   fun setAnimationName(animationName: String) {

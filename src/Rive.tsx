@@ -343,6 +343,12 @@ function useRivePropertyListener<T>(
             typeof newValue === 'string' ? parseColor(newValue) : newValue;
           riveRef.setColor(path, parsedColor as RiveRGBA);
           break;
+        case PropertyType.Image:
+          riveRef.setImage(path, newValue as string);
+          break;
+        case PropertyType.Artboard:
+          riveRef.setArtboard(path, newValue as string);
+          break;
         default:
           if (__DEV__) {
             console.warn(
@@ -412,6 +418,7 @@ type RiveProps = {
       message: string;
     }>
   ) => void;
+  onReady?: () => void;
   isUserHandlingErrors: boolean;
   autoplay?: boolean;
   fit: Fit;
@@ -439,6 +446,7 @@ type Props = {
   onStateChanged?: (stateMachineName: string, stateName: string) => void;
   onRiveEventReceived?: (event: RiveGeneralEvent | RiveOpenUrlEvent) => void;
   onError?: (rnRiveError: RNRiveError) => void;
+  onReady?: () => void;
   fit?: Fit;
   layoutScaleFactor?: number;
   style?: ViewStyle;
@@ -472,6 +480,7 @@ const RiveContainer = React.forwardRef<RiveRef, Props>(
       onStateChanged,
       onRiveEventReceived,
       onError,
+      onReady,
       style,
       autoplay = true,
       resourceName: resourceNameProp,
@@ -635,6 +644,25 @@ const RiveContainer = React.forwardRef<RiveRef, Props>(
       },
       [onError]
     );
+
+    // Listen for the native "loaded" event and call onReady
+    useEffect(() => {
+      if (!onReady) return () => {};
+
+      const viewTag = findNodeHandle(riveRef.current);
+      if (!viewTag) return () => {};
+
+      const subscription = nativeEventEmitter.addListener(
+        `RiveReactNativeLoaded:${viewTag}`,
+        () => {
+          onReady();
+        }
+      );
+
+      return () => {
+        subscription.remove();
+      };
+    }, [onReady]);
 
     const play = useCallback<RiveRef[ViewManagerMethod.play]>(
       (
@@ -919,6 +947,32 @@ const RiveContainer = React.forwardRef<RiveRef, Props>(
       []
     );
 
+    const setImage = useCallback<RiveRef['setImage']>(
+      (path: string, imageUrl: string) => {
+        console.log('[RiveReactNative JS] setImage called:', {
+          path,
+          imageUrl,
+        });
+        UIManager.dispatchViewManagerCommand(
+          findNodeHandle(riveRef.current),
+          ViewManagerMethod.setImagePropertyValue,
+          [path, imageUrl]
+        );
+      },
+      []
+    );
+
+    const setArtboard = useCallback<RiveRef['setArtboard']>(
+      (path: string, artboardName: string) => {
+        UIManager.dispatchViewManagerCommand(
+          findNodeHandle(riveRef.current),
+          ViewManagerMethod.setArtboardPropertyValue,
+          [path, artboardName]
+        );
+      },
+      []
+    );
+
     const trigger = useCallback<RiveRef['trigger']>((path: string) => {
       UIManager.dispatchViewManagerCommand(
         findNodeHandle(riveRef.current),
@@ -967,6 +1021,8 @@ const RiveContainer = React.forwardRef<RiveRef, Props>(
         setNumber,
         setColor,
         setEnum,
+        setImage,
+        setArtboard,
         trigger,
         internalNativeEmitter,
         viewTag,
@@ -993,6 +1049,8 @@ const RiveContainer = React.forwardRef<RiveRef, Props>(
         setNumber,
         setColor,
         setEnum,
+        setImage,
+        setArtboard,
         trigger,
         internalNativeEmitter,
         viewTag,

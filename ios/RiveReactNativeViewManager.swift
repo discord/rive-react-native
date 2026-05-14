@@ -13,17 +13,17 @@ class RiveReactNativeViewManager: RCTViewManager {
     private func withRiveReactNativeView(_ node: NSNumber, _ file: String=#file, _ line: UInt=#line, _ handler: @escaping (RiveReactNativeView) -> Void) {
         DispatchQueue.main.async {
             guard let bridge = self.bridge else {
-                RCTSwiftLog.error("Bridge is nil when trying to access RiveReactNativeView", file: file, line: line)
+                RCTSwiftLog.error("Bridge is nil when trying to access RiveReactNativeView", file: file, line: Int(line))
                 return
             }
 
             guard let view = bridge.uiManager.view(forReactTag: node) else {
-                RCTSwiftLog.error("Could not find view with tag: \(node)", file: file, line:line)
+                RCTSwiftLog.error("Could not find view with tag: \(node)", file: file, line: Int(line))
                 return
             }
 
             guard let riveView = view as? RiveReactNativeView else {
-                RCTSwiftLog.error("View with tag \(node) is not a RiveReactNativeView, got \(String(describing: type(of: view))) instead", file: file, line: line)
+                RCTSwiftLog.error("View with tag \(node) is not a RiveReactNativeView, got \(String(describing: type(of: view))) instead", file: file, line: Int(line))
                 return
             }
 
@@ -133,6 +133,14 @@ class RiveReactNativeViewManager: RCTViewManager {
 
     @objc func registerPropertyListener(_ node: NSNumber, path: String, propertyType: String) {
         withRiveReactNativeView(node) { $0.registerPropertyListener(path: path, propertyType: propertyType) }
+    }
+
+    @objc func setImagePropertyValue(_ node: NSNumber, path: String, imageUrl: String) {
+        withRiveReactNativeView(node) { $0.setImagePropertyValue(path: path, imageUrl: imageUrl) }
+    }
+
+    @objc func setArtboardPropertyValue(_ node: NSNumber, path: String, artboardName: String) {
+        withRiveReactNativeView(node) { $0.setArtboardPropertyValue(path: path, artboardName: artboardName) }
     }
 
     @objc static override func requiresMainQueueSetup() -> Bool {
